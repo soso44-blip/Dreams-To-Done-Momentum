@@ -221,6 +221,7 @@ body{
 .fm-proj{color:var(--txt2);font-size:15px;margin-bottom:40px}
 .fm-ring{position:relative;width:240px;height:240px;margin-bottom:34px}
 .fm-ring svg{transform:rotate(-90deg)}
+.fm-ring > svg{width:100%;height:100%;display:block}
 .fm-time{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .fm-time-big{font-family:var(--font-display);font-size:52px;font-weight:600;letter-spacing:0.01em;line-height:1}
 .fm-time-sub{font-size:13px;color:var(--txt2);font-weight:600;margin-top:6px;letter-spacing:0.04em}
@@ -459,6 +460,10 @@ body{
 .seg{display:inline-flex;background:var(--ink2);border:1px solid var(--line);border-radius:11px;padding:4px;gap:4px;margin:22px 0 4px}
 .seg-btn{border:none;background:none;color:var(--txt2);font-family:var(--font-body);font-weight:700;font-size:13.5px;padding:8px 15px;border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px}
 .seg-btn.on{background:var(--sage-soft);color:var(--sage)}
+.plan-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.proj-filter{font-family:var(--font-body);font-weight:700;font-size:13px;color:var(--txt2);background-color:var(--ink2);border:1px solid var(--line2);border-radius:10px;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a8088' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;padding:9px 32px 9px 13px;max-width:190px;text-overflow:ellipsis}
+.proj-filter.on{color:var(--sage);border-color:var(--sage);background-color:var(--sage-soft)}
+.proj-filter:focus{outline:none;border-color:var(--sage)}
 .load-card{background:var(--ink2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px 18px;margin:16px 0 18px}
 .load-top{display:flex;align-items:center;gap:11px;font-size:14.5px;color:var(--txt);line-height:1.5}
 .load-top b{font-weight:800}
@@ -836,7 +841,7 @@ body{
     <button class="fm-step" onclick="adjustFocus(5)" aria-label="More time">+</button>
   </div>
   <div class="fm-ring">
-    <svg width="240" height="240"><circle class="ring-track" cx="120" cy="120" r="110" fill="none" stroke="var(--ring-track)" stroke-width="10"/><circle id="fmRing" cx="120" cy="120" r="110" fill="none" stroke="var(--sage)" stroke-width="10" stroke-linecap="round" stroke-dasharray="691.2" stroke-dashoffset="0"/></svg>
+    <svg viewBox="0 0 240 240" width="240" height="240"><circle class="ring-track" cx="120" cy="120" r="110" fill="none" stroke="var(--ring-track)" stroke-width="10"/><circle id="fmRing" cx="120" cy="120" r="110" fill="none" stroke="var(--sage)" stroke-width="10" stroke-linecap="round" stroke-dasharray="691.2" stroke-dashoffset="0"/></svg>
     <div class="fm-time">
       <div class="fm-time-big" id="fmTime">25:00</div>
       <div class="fm-time-sub" id="fmTimeSub">tap start when ready</div>
@@ -922,7 +927,7 @@ var DEFAULT={
   tasks:[],
   inbox:[],
   momentum:{sessions:0,minutes:0,tasksDone:0,streak:0,lastActive:null,bestStreak:0,history:[]},
-  ui:{energyFilter:"all"},
+  ui:{energyFilter:"all",projectFilter:"all"},
   seenWelcome:false
 };
 var S=JSON.parse(JSON.stringify(DEFAULT));
@@ -943,7 +948,7 @@ function load(){
     var raw=localStorage.getItem(STORE_KEY);
     if(raw){var d=JSON.parse(raw);S=Object.assign(JSON.parse(JSON.stringify(DEFAULT)),d);
       S.momentum=Object.assign(JSON.parse(JSON.stringify(DEFAULT.momentum)),d.momentum||{});
-      S.ui=Object.assign({energyFilter:"all"},d.ui||{});}
+      S.ui=Object.assign({energyFilter:"all",projectFilter:"all"},d.ui||{});}
   }catch(e){}
   checkStreak();
 }
@@ -1138,10 +1143,17 @@ function renderToday(c,title,sub,actions){
   if(_open>=3) html+=coachHTML('timeline','Lots on your plate? Tap \ud83d\uddd3 Timeline to lay it out by time.');
   else if(_open>=1) html+=coachHTML('capture','Stray thought? Hit Quick Capture (press C) to park it without losing focus.');
   // Plan toggle: List vs Timeline (keeps planning inside Today, no nav clutter)
-  html+='<div class="seg" role="tablist">'
+  html+='<div class="plan-row"><div class="seg" role="tablist">'
     +'<button class="seg-btn'+(todayMode==='list'?' on':'')+'" onclick="setTodayMode(\'list\')">📋 List</button>'
     +'<button class="seg-btn'+(todayMode==='timeline'?' on':'')+'" onclick="setTodayMode(\'timeline\')">🗓 Timeline</button>'
     +'</div>';
+  if(todayMode==='list' && S.projects.length){
+    var _pf=S.ui.projectFilter||'all';
+    var _opts='<option value="all"'+(_pf==='all'?' selected':'')+'>📁 All projects</option>';
+    S.projects.forEach(function(p){_opts+='<option value="'+p.id+'"'+(_pf===p.id?' selected':'')+'>'+esc(p.name)+'</option>';});
+    html+='<select class="proj-filter'+(_pf!=='all'?' on':'')+'" onchange="setProjectFilter(this.value)" aria-label="Filter tasks by project">'+_opts+'</select>';
+  }
+  html+='</div>';
   if(todayMode==='list'){
   // Energy filter
   html+='<div style="margin:24px 0 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">';
@@ -1155,6 +1167,7 @@ function renderToday(c,title,sub,actions){
   // Focused task list (limited to reduce overwhelm)
   var pool=activeTasks();
   if(S.ui.energyFilter!=="all")pool=pool.filter(function(t){return t.energy===S.ui.energyFilter;});
+  if(S.ui.projectFilter&&S.ui.projectFilter!=="all")pool=pool.filter(function(t){return t.projectId===S.ui.projectFilter;});
   pool=sortByDue(pool);
   var shown=pool.slice(0,7);
 
@@ -1391,6 +1404,7 @@ function unscheduleTask(id){
 function clearSchedule(){if(schedulingId)unscheduleTask(schedulingId);closeScheduler();}
 
 function setEnergyFilter(e){S.ui.energyFilter=e;save();render();}
+function setProjectFilter(v){S.ui.projectFilter=v;save();render();}
 function skipRightNow(id){
   var t=S.tasks.find(function(x){return x.id===id;});
   if(t){t._skip=(t._skip||0)+Date.now();t.created=Date.now()+1000;}
@@ -1595,6 +1609,7 @@ function renderProjects(c,title,sub,actions){
   S.projects.forEach(function(p){
     var ts=projTasks(p.id), open=ts.filter(function(t){return !t.done;}), pct=projProgress(p.id);
     var remMin=open.reduce(function(s,t){return s+estMinutes(t);},0);
+    var doneMin=ts.filter(function(t){return t.done;}).reduce(function(s,t){return s+estMinutes(t);},0);
     var next=sortByDue(open.filter(function(t){return t.nextAction;}))[0]||sortByDue(open)[0];
     html+='<div class="proj-card" onclick="openProject(\''+p.id+'\')">';
     html+='<div class="proj-bar" style="background:'+p.color+'"></div>';
@@ -1603,7 +1618,7 @@ function renderProjects(c,title,sub,actions){
     if(p.note)html+='<div class="proj-note"><svg viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3 8-8M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'+esc(p.note)+'</div>';
     if(next)html+='<div class="proj-next"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'+esc(next.text)+'</div>';
     else html+='<div class="proj-next" style="color:var(--txt3)">All clear — nothing open</div>';
-    html+='<div class="proj-foot"><span>'+open.length+' open · '+ts.length+' total'+(remMin>0?' · ~'+fmtDur(remMin)+' left':'')+'</span><span>'+pct+'% complete</span></div>';
+    html+='<div class="proj-foot"><span>'+open.length+' open · '+ts.length+' total'+(remMin>0?' · ~'+fmtDur(remMin)+' left':'')+'</span><span>'+(doneMin>0?'<b style="color:var(--sage)">'+fmtDur(doneMin)+'</b> done · '+pct+'%':pct+'% complete')+'</span></div>';
     html+='</div>';
   });
   html+='</div>';
